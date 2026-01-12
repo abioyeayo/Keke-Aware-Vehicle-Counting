@@ -1,0 +1,13 @@
+train: ./train/images
+val: ./valid/images
+test: ./test/images
+
+nc: 6
+names: ['bicycle', 'bus', 'car', 'keke', 'motorcycle', 'truck']
+
+roboflow:
+  workspace: cv-9mvzg
+  project: vehicle-counter-sotfa
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/cv-9mvzg/vehicle-counter-sotfa/dataset/1

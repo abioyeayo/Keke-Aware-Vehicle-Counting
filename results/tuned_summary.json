@@ -1,0 +1,13 @@
+{
+  "model": "tuned",
+  "model_path": "runs/detect/train3/weights/best.pt",
+  "frames_processed": 18022,
+  "video_fps": 30.0,
+  "processing_seconds": 335.0468645095825,
+  "processing_fps": 53.78949009530146,
+  "segments": 732,
+  "unique_tracks_with_region_segments": 710,
+  "total_dwell_time_s": 12253.033333333335,
+  "avg_dwell_time_s": 16.739116575591986,
+  "avg_conf_in_region": 0.8059897785348829
+}
