@@ -1,0 +1,9 @@
+ultralytics==8.4.36
+opencv-python-headless
+numpy
+pandas
+matplotlib
+scipy
+pyyaml
+jupyterlab
+tensorboard

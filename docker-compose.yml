@@ -1,0 +1,40 @@
+services:
+  keke-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        USER_ID: ${HOST_UID:-1000}
+        GROUP_ID: ${HOST_GID:-1000}
+        USERNAME: appuser
+    image: keke-aware-counting:cu126
+    container_name: keke-aware-counting
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    init: true
+    shm_size: "16gb"
+    ipc: host
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MPLCONFIGDIR: /tmp/matplotlib
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+    volumes:
+      - ./:/workspace
+      - pip-cache:/home/appuser/.cache/pip
+      - ultralytics-cache:/home/appuser/.cache/ultralytics
+    ports:
+      - "8888:8888"
+      - "6006:6006"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  pip-cache:
+  ultralytics-cache:
