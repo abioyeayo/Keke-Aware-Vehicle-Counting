@@ -1,4 +1,5 @@
 import os
+import argparse
 from typing import Dict, Tuple, Optional, List
 
 import numpy as np
@@ -6,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-def traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction):
+def traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction,min_duration_s=0.15,max_duration_s=10.0,min_avg_conf=0.4):
 
     color_map = {
         "bicycle": "tab:red",
@@ -33,15 +34,23 @@ def traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction):
         ddf = default[default["class"] == object_cls]
         bdf = baseline[baseline["class"] == object_cls]
 
-        # filtering by 0.15s durations i.e. appears in atleast 4 frames for @30 fps video, to remove noisy objects
-        # also filtered out stationary objects in region for more than 10 seconds 
-        tdf = tdf[(tdf["duration_s"] >= 0.15) & (tdf["duration_s"] <= 10)]
-        ddf = ddf[(ddf["duration_s"] >= 0.15) & (ddf["duration_s"] <= 10)]
+        # filtering by duration to remove noisy/very long stationary objects
+        tdf = tdf[(tdf["duration_s"] >= min_duration_s) & (tdf["duration_s"] <= max_duration_s)]
+        ddf = ddf[(ddf["duration_s"] >= min_duration_s) & (ddf["duration_s"] <= max_duration_s)]
+
+        # filtering by average confidence in region
+        tdf = tdf[tdf["avg_conf_in_region"] >= min_avg_conf]
+        ddf = ddf[ddf["avg_conf_in_region"] >= min_avg_conf]
+
+        # # filtering by 0.15s durations i.e. appears in atleast 4 frames for @30 fps video, to remove noisy objects
+        # # also filtered out stationary objects in region for more than 10 seconds 
+        # tdf = tdf[(tdf["duration_s"] >= 0.15) & (tdf["duration_s"] <= 10)]
+        # ddf = ddf[(ddf["duration_s"] >= 0.15) & (ddf["duration_s"] <= 10)]
 
 
-        # filtering by 0.4 average confidence in region
-        tdf = tdf[tdf["avg_conf_in_region"] >= 0.4]
-        ddf = ddf[ddf["avg_conf_in_region"] >= 0.4]
+        # # filtering by 0.4 average confidence in region
+        # tdf = tdf[tdf["avg_conf_in_region"] >= 0.4]
+        # ddf = ddf[ddf["avg_conf_in_region"] >= 0.4]
 
         # specifying direction of travel
         if direction == "upward":
@@ -94,7 +103,7 @@ def traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction):
     plt.savefig(outpath, dpi=200)
 
 
-def traffic_flow_plotter(tuned, default, baseline, outdir, direction):
+def traffic_flow_plotter(tuned, default, baseline, outdir, direction, min_duration_s=0.15, max_duration_s=10.0, min_avg_conf=0.4):
     """
     Creates:
       1) A 2x2 figure: one subplot per class, each subplot has 3 cumulative curves (tuned/default/baseline)
@@ -138,12 +147,12 @@ def traffic_flow_plotter(tuned, default, baseline, outdir, direction):
         bdf = baseline[baseline["class"] == object_cls]
 
         # duration filter (noisy + long stationary)
-        tdf = tdf[(tdf["duration_s"] >= 0.15) & (tdf["duration_s"] <= 10)]
-        ddf = ddf[(ddf["duration_s"] >= 0.15) & (ddf["duration_s"] <= 10)]
+        tdf = tdf[(tdf["duration_s"] >= min_duration_s) & (tdf["duration_s"] <= max_duration_s)]
+        ddf = ddf[(ddf["duration_s"] >= min_duration_s) & (ddf["duration_s"] <= max_duration_s)]
 
         # confidence filter
-        tdf = tdf[tdf["avg_conf_in_region"] >= 0.4]
-        ddf = ddf[ddf["avg_conf_in_region"] >= 0.4]
+        tdf = tdf[tdf["avg_conf_in_region"] >= min_avg_conf]
+        ddf = ddf[ddf["avg_conf_in_region"] >= min_avg_conf]
 
         # direction filter (tuned/default)
         if direction == "upward":
@@ -231,29 +240,140 @@ def traffic_flow_plotter(tuned, default, baseline, outdir, direction):
     fig2.savefig(bar_outpath, dpi=200)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Plot tuned/default/baseline traffic flow metrics from CSV files."
+    )
+    parser.add_argument(
+        "--tuned-segments",
+        default="./results/tuned_region_segments.csv",
+        help="Path to tuned model region segments CSV.",
+    )
+    parser.add_argument(
+        "--default-segments",
+        default="./results/default_region_segments.csv",
+        help="Path to default model region segments CSV.",
+    )
+    parser.add_argument(
+        "--baseline-segments",
+        default="./baseline/yola_road_mp4_baseline_vehicle_count.csv",
+        help="Path to baseline/manual count CSV.",
+    )
+    parser.add_argument(
+        "--outdir",
+        default="./results/plots",
+        help="Directory to save plots.",
+    )
+    parser.add_argument(
+        "--directions",
+        nargs="+",
+        default=["upward", "downward"],
+        choices=["upward", "downward", "stationary"],
+        help="One or more directions to plot.",
+    )
+    parser.add_argument(
+        "--min-duration-s",
+        type=float,
+        default=0.15,
+        help="Minimum segment duration to keep.",
+    )
+    parser.add_argument(
+        "--max-duration-s",
+        type=float,
+        default=10.0,
+        help="Maximum segment duration to keep.",
+    )
+    parser.add_argument(
+        "--min-avg-conf",
+        type=float,
+        default=0.4,
+        help="Minimum average in-region confidence to keep.",
+    )
+    parser.add_argument(
+        "--skip-combined",
+        action="store_true",
+        help="Skip the combined per-direction line plot.",
+    )
+    parser.add_argument(
+        "--skip-grid",
+        action="store_true",
+        help="Skip the 2x2 cumulative plot and grouped bar chart.",
+    )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Display plots interactively with plt.show().",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    os.makedirs(args.outdir, exist_ok=True)
+
+    tuned = pd.read_csv(args.tuned_segments)
+    default = pd.read_csv(args.default_segments)
+    baseline = pd.read_csv(args.baseline_segments)
+
+    for direction in args.directions:
+        print(f"-------------{direction} traffic flow-------------")
+
+        if not args.skip_combined:
+            traffic_flow_plotter_combined(
+                tuned,
+                default,
+                baseline,
+                args.outdir,
+                direction=direction,
+                min_duration_s=args.min_duration_s,
+                max_duration_s=args.max_duration_s,
+                min_avg_conf=args.min_avg_conf,
+            )
+
+        if not args.skip_grid:
+            traffic_flow_plotter(
+                tuned,
+                default,
+                baseline,
+                args.outdir,
+                direction=direction,
+                min_duration_s=args.min_duration_s,
+                max_duration_s=args.max_duration_s,
+                min_avg_conf=args.min_avg_conf,
+            )
+
+    if args.show:
+        plt.show()
+
+
 if __name__ == "__main__":
+    main()
+
+
+# if __name__ == "__main__":
     
-    tuned_segments_path = "./results/tuned_region_segments.csv"
-    default_segments_path = "./results/default_region_segments.csv"
-    baseline_segments_path = "./baseline/yola_road_mp4_baseline_vehicle_count.csv"
-    tuned_per_frame_path = "./results/tuned_per_frame.csv"
-    default_per_frame_path = "./results/default_per_frame.csv"
-    outdir = "./results/plots"
+#     tuned_segments_path = "./results/tuned_region_segments.csv"
+#     default_segments_path = "./results/default_region_segments.csv"
+#     baseline_segments_path = "./baseline/yola_road_mp4_baseline_vehicle_count.csv"
+#     tuned_per_frame_path = "./results/tuned_per_frame.csv"
+#     default_per_frame_path = "./results/default_per_frame.csv"
+#     outdir = "./results/plots"
 
-    os.makedirs(outdir, exist_ok=True)
+#     os.makedirs(outdir, exist_ok=True)
 
-    tuned = pd.read_csv(tuned_segments_path)
-    default = pd.read_csv(default_segments_path)
-    baseline = pd.read_csv(baseline_segments_path)
+#     tuned = pd.read_csv(tuned_segments_path)
+#     default = pd.read_csv(default_segments_path)
+#     baseline = pd.read_csv(baseline_segments_path)
 
-    # upward direction
-    print('-------------upward traffic flow-------------')
-    traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction="upward")
-    traffic_flow_plotter(tuned,default,baseline,outdir,direction="upward")
+#     # upward direction
+#     print('-------------upward traffic flow-------------')
+#     traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction="upward")
+#     traffic_flow_plotter(tuned,default,baseline,outdir,direction="upward")
 
-    # downward direction
-    print('-------------downward traffic flow-------------')
-    traffic_flow_plotter(tuned,default,baseline,outdir,direction="downward")    
-    traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction="downward")    
-    plt.show()
-    # plt.close()
+#     # downward direction
+#     print('-------------downward traffic flow-------------')
+#     traffic_flow_plotter(tuned,default,baseline,outdir,direction="downward")    
+#     traffic_flow_plotter_combined(tuned,default,baseline,outdir,direction="downward")    
+#     plt.show()
+#     # plt.close()

@@ -59,7 +59,28 @@ python train.py --model yolo26l.pt --epochs 100 --imgsz 640 --name train_keke_re
 
 Inside the container, run:
 ```bash
-python vehicle_counter_analysis.py
+python vehicle_counter_analysis.py \
+  --video-path ./datasets/test/yola_road.mp4 \
+  --tracker botsort.yaml \
+  --region-points "20,400 1080,400 1080,360 20,360" \
+  --default-class-filter "2,3,5,7" \
+  --default-model "yolo26l.pt" \
+  --tuned-model "runs/detect/train_keke_rev1/weights/best.pt" \
+  --out-dir "./results/keke_rev1"
+```
+
+### Plot analysis result
+
+Inside the container, run:
+```bash
+python plot_vehicle_metrics.py \
+  --min-duration-s 0.20 \
+  --max-duration-s 8.0 \
+  --min-avg-conf 0.50 \
+  --tuned-segments ./results/keke_rev1/tuned_region_segments.csv \
+  --default-segments ./results/keke_rev1/default_region_segments.csv \
+  --baseline-segments ./baseline/yola_road_mp4_baseline_vehicle_count.csv \
+  --outdir ./results/keke_rev1/plots
 ```
 
 ### Stop the container

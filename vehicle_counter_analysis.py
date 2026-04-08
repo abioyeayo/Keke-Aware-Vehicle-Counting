@@ -1,6 +1,8 @@
+import argparse
 import cv2
 import time
 import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional
 
@@ -12,50 +14,88 @@ from ultralytics import YOLO
 
 
 # -------------------------
-# Configuration
+# Defaults
 # -------------------------
-VIDEO_PATH = "./datasets/test/yola_road.mp4"
+DEFAULT_VIDEO_PATH = "./datasets/test/yola_road.mp4"
+DEFAULT_REGION_POINTS = [(20, 400), (1080, 400), (1080, 360), (20, 360)]
 
-# Rectangle region (same points you used)
-REGION_POINTS = [(20, 400), (1080, 400), (1080, 360), (20, 360)]
+DEFAULT_TUNED_MODEL = "runs/detect/train/weights/best.pt"
+DEFAULT_DEFAULT_MODEL = "yolo11l.pt"
 
-# Compare these two models:
-TUNED_MODEL = "runs/detect/train/weights/best.pt"
-DEFAULT_MODEL = "yolo11l.pt"  # change to yolo11n.pt/yolov8n.pt if you prefer
-
-# Vehicle classes for COCO (if using a COCO model)
 # COCO: 2=car, 3=motorcycle, 5=bus, 7=truck
-COCO_VEHICLE_CLASS_IDS = [2, 3, 5, 7]
+DEFAULT_COCO_VEHICLE_CLASS_IDS = [2, 3, 5, 7]
 
-# Tracking config
-TRACKER_CFG = "botsort.yaml"   # or "bytetrack.yaml"
-CONF_THRES = 0.25
-IOU_THRES = 0.45
-
-# Outputs
-OUT_DIR = "./results"
-SAVE_ANNOTATED_VIDEO = True
-EXPORT_PER_FRAME_CSV = True  # can be large for long videos
+DEFAULT_TRACKER_CFG = "botsort.yaml" # or bytetrack.yaml
+DEFAULT_CONF_THRES = 0.25
+DEFAULT_IOU_THRES = 0.45
+DEFAULT_OUT_DIR = "./results"
 
 
 # -------------------------
 # Helpers
 # -------------------------
 def ensure_dir(path: str):
-    import os
     os.makedirs(path, exist_ok=True)
 
+
 def region_contour(points: List[Tuple[int, int]]) -> np.ndarray:
-    # cv2.pointPolygonTest expects shape (N,1,2)
     return np.array(points, dtype=np.int32).reshape((-1, 1, 2))
 
+
 def in_region(contour: np.ndarray, cx: float, cy: float) -> bool:
-    # returns +1, 0, -1 (inside, on edge, outside)
     return cv2.pointPolygonTest(contour, (float(cx), float(cy)), False) >= 0
+
 
 def xyxy_centroid(xyxy: np.ndarray) -> Tuple[float, float]:
     x1, y1, x2, y2 = xyxy
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+
+def parse_region_points(value: str) -> List[Tuple[int, int]]:
+    """
+    Expected format:
+      "20,400 1080,400 1080,360 20,360"
+    """
+    points = []
+    for token in value.strip().split():
+        x_str, y_str = token.split(",")
+        points.append((int(x_str), int(y_str)))
+    if len(points) < 3:
+        raise argparse.ArgumentTypeError("Region must contain at least 3 points.")
+    return points
+
+
+def parse_class_filter(value: str) -> Optional[List[int]]:
+    """
+    Examples:
+      "none" -> None
+      "2,3,5,7" -> [2, 3, 5, 7]
+      "" -> None
+    """
+    if value is None:
+        return None
+    value = value.strip().lower()
+    if value in {"", "none", "null"}:
+        return None
+    return [int(x.strip()) for x in value.split(",") if x.strip()]
+
+
+def build_output_paths(out_dir: str, model_label: str, save_video: bool, export_per_frame_csv: bool):
+    video_out = os.path.join(out_dir, f"annotated_{model_label}.mp4") if save_video else None
+    per_frame_csv = os.path.join(out_dir, f"{model_label}_per_frame.csv") if export_per_frame_csv else None
+    segments_csv = os.path.join(out_dir, f"{model_label}_region_segments.csv")
+    summary_json = os.path.join(out_dir, f"{model_label}_summary.json")
+    return video_out, per_frame_csv, segments_csv, summary_json
+
+
+def get_video_fps(video_path: str) -> float:
+    cap = cv2.VideoCapture(video_path)
+    assert cap.isOpened(), f"Error reading video file: {video_path}"
+    fps = float(cap.get(cv2.CAP_PROP_FPS))
+    cap.release()
+    if fps <= 0:
+        raise ValueError(f"Could not determine FPS from video: {video_path}")
+    return fps
 
 
 @dataclass
@@ -66,7 +106,6 @@ class TrackState:
     enter_time: Optional[float] = None
     enter_frame: Optional[int] = None
 
-    # NEW:
     enter_cx: Optional[float] = None
     enter_cy: Optional[float] = None
     last_cx: Optional[float] = None
@@ -83,7 +122,6 @@ class TrackState:
         self.enter_time = t
         self.enter_frame = frame_idx
 
-        # NEW:
         self.enter_cx = cx
         self.enter_cy = cy
         self.last_cx = cx
@@ -97,14 +135,13 @@ class TrackState:
         self.frames_inside += 1
         self.conf_sum_inside += conf
         self.conf_max_inside = max(self.conf_max_inside, conf)
-
-        # NEW:
         self.last_cx = cx
         self.last_cy = cy
 
     def end_segment(self, t_exit: float, frame_exit: int, track_id: int):
         if self.enter_time is None or self.enter_frame is None:
             return
+
         duration = t_exit - self.enter_time
         avg_conf = (self.conf_sum_inside / self.frames_inside) if self.frames_inside > 0 else 0.0
 
@@ -116,13 +153,10 @@ class TrackState:
             "duration_s": duration,
             "enter_frame": self.enter_frame,
             "exit_frame": frame_exit,
-
-            # NEW:
             "enter_cx": self.enter_cx,
             "enter_cy": self.enter_cy,
             "exit_cx": self.last_cx,
             "exit_cy": self.last_cy,
-
             "avg_conf_in_region": avg_conf,
             "max_conf_in_region": self.conf_max_inside,
             "frames_in_region": self.frames_inside,
@@ -134,29 +168,37 @@ class TrackState:
 
 
 def run_video_for_model(
+    *,
+    video_path: str,
     model_path: str,
     model_label: str,
     contour: np.ndarray,
     output_video_path: Optional[str],
-    per_frame_csv_path: str,
+    per_frame_csv_path: Optional[str],
     segments_csv_path: str,
     summary_json_path: str,
     fps: float,
+    tracker_cfg: str,
+    conf_thres: float,
+    iou_thres: float,
+    out_dir: str,
+    save_annotated_video: bool,
+    export_per_frame_csv: bool,
     vehicle_class_filter: Optional[List[int]] = None,
 ):
-    ensure_dir(OUT_DIR)
+    ensure_dir(out_dir)
 
     model = YOLO(model_path)
-    names = model.names  # dict: id -> name
+    names = model.names
 
-    cap = cv2.VideoCapture(VIDEO_PATH)
-    assert cap.isOpened(), f"Error reading video file: {VIDEO_PATH}"
+    cap = cv2.VideoCapture(video_path)
+    assert cap.isOpened(), f"Error reading video file: {video_path}"
 
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     writer = None
-    if output_video_path and SAVE_ANNOTATED_VIDEO:
+    if output_video_path and save_annotated_video:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(output_video_path, fourcc, fps, (w, h))
 
@@ -167,7 +209,6 @@ def run_video_for_model(
     frame_idx = 0
     t0 = time.time()
 
-    # Main loop
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -175,22 +216,17 @@ def run_video_for_model(
 
         timestamp_s = frame_idx / fps
 
-        # Track on this frame
         results = model.track(
             source=frame,
             persist=True,
-            tracker=TRACKER_CFG,
-            conf=CONF_THRES,
-            iou=IOU_THRES,
+            tracker=tracker_cfg,
+            conf=conf_thres,
+            iou=iou_thres,
             verbose=False,
         )
         r0 = results[0]
-
-        # If no detections, still need to potentially end segments? (We keep segments open until object leaves region)
-        # However, with tracking, absence means track is lost. If you want to close on loss, you can do that here.
         boxes = r0.boxes
 
-        # Draw region on the frame
         annotated = r0.plot()
         cv2.polylines(annotated, [contour], isClosed=True, color=(0, 255, 255), thickness=2)
 
@@ -201,25 +237,19 @@ def run_video_for_model(
             tids = boxes.id.cpu().numpy().astype(int)
 
             for bb, conf, cls_id, tid in zip(xyxy, confs, clss, tids):
-                # Optional class filtering (useful for COCO default model)
                 if vehicle_class_filter is not None and cls_id not in vehicle_class_filter:
                     continue
 
-                cls_name = names.get(cls_id, str(cls_id))
+                cls_name = names.get(cls_id, str(cls_id)) if isinstance(names, dict) else names[cls_id]
                 x1, y1, x2, y2 = bb
                 cx, cy = xyxy_centroid(bb)
                 inside = in_region(contour, cx, cy)
 
-                # init track state if new
                 if tid not in track_states:
                     track_states[tid] = TrackState(cls_name=cls_name)
-                else:
-                    # if class name changes, keep first (or update—your call)
-                    pass
 
                 st = track_states[tid]
 
-                # segment logic
                 if inside and not st.inside:
                     st.start_segment(timestamp_s, frame_idx, cx, cy)
 
@@ -229,8 +259,7 @@ def run_video_for_model(
                 if (not inside) and st.inside:
                     st.end_segment(timestamp_s, frame_idx, tid)
 
-                # per-frame export
-                if EXPORT_PER_FRAME_CSV:
+                if export_per_frame_csv:
                     per_frame_rows.append({
                         "model": model_label,
                         "timestamp_s": timestamp_s,
@@ -239,19 +268,19 @@ def run_video_for_model(
                         "class": cls_name,
                         "conf": float(conf),
                         "in_region": bool(inside),
-
-                        # NEW:
-                        "x1": float(x1), "y1": float(y1), "x2": float(x2), "y2": float(y2),
-                        "cx": float(cx), "cy": float(cy),
+                        "x1": float(x1),
+                        "y1": float(y1),
+                        "x2": float(x2),
+                        "y2": float(y2),
+                        "cx": float(cx),
+                        "cy": float(cy),
                     })
 
-        # write video
         if writer is not None:
             writer.write(annotated)
 
         frame_idx += 1
 
-    # Close any segments still open at end of video
     end_time_s = (frame_idx - 1) / fps if frame_idx > 0 else 0.0
     for tid, st in track_states.items():
         if st.inside:
@@ -266,15 +295,21 @@ def run_video_for_model(
     if writer is not None:
         writer.release()
 
-    # Save CSVs
-    if EXPORT_PER_FRAME_CSV:
+    if export_per_frame_csv and per_frame_csv_path is not None:
         pd.DataFrame(per_frame_rows).to_csv(per_frame_csv_path, index=False)
 
     seg_df = pd.DataFrame(all_segments)
-    seg_df.insert(0, "model", model_label)
+    if seg_df.empty:
+        seg_df = pd.DataFrame(columns=[
+            "model", "track_id", "class", "enter_time_s", "exit_time_s", "duration_s",
+            "enter_frame", "exit_frame", "enter_cx", "enter_cy", "exit_cx", "exit_cy",
+            "avg_conf_in_region", "max_conf_in_region", "frames_in_region"
+        ])
+    else:
+        seg_df.insert(0, "model", model_label)
+
     seg_df.to_csv(segments_csv_path, index=False)
 
-    # Summary
     total_segments = len(seg_df)
     total_unique_tracks = seg_df["track_id"].nunique() if total_segments else 0
     total_dwell = float(seg_df["duration_s"].sum()) if total_segments else 0.0
@@ -284,6 +319,10 @@ def run_video_for_model(
     summary = {
         "model": model_label,
         "model_path": model_path,
+        "video_path": video_path,
+        "tracker_cfg": tracker_cfg,
+        "conf_thres": conf_thres,
+        "iou_thres": iou_thres,
         "frames_processed": frame_idx,
         "video_fps": fps,
         "processing_seconds": elapsed,
@@ -293,6 +332,7 @@ def run_video_for_model(
         "total_dwell_time_s": total_dwell,
         "avg_dwell_time_s": avg_dwell,
         "avg_conf_in_region": avg_conf,
+        "vehicle_class_filter": vehicle_class_filter,
     }
 
     with open(summary_json_path, "w") as f:
@@ -302,7 +342,6 @@ def run_video_for_model(
 
 
 def plot_comparison(seg_a: pd.DataFrame, seg_b: pd.DataFrame, label_a: str, label_b: str, out_prefix: str):
-    # 1) Counts over time (bin by second using enter_time)
     def counts_over_time(seg: pd.DataFrame):
         if seg.empty:
             return pd.DataFrame(columns=["t", "count"])
@@ -310,14 +349,14 @@ def plot_comparison(seg_a: pd.DataFrame, seg_b: pd.DataFrame, label_a: str, labe
         s = pd.Series(1, index=t).groupby(level=0).sum().sort_index()
         return pd.DataFrame({"t": s.index.values, "count": s.values})
 
-    cA = counts_over_time(seg_a)
-    cB = counts_over_time(seg_b)
+    c_a = counts_over_time(seg_a)
+    c_b = counts_over_time(seg_b)
 
     plt.figure()
-    if not cA.empty:
-        plt.plot(cA["t"], cA["count"], label=label_a)
-    if not cB.empty:
-        plt.plot(cB["t"], cB["count"], label=label_b)
+    if not c_a.empty:
+        plt.plot(c_a["t"], c_a["count"], label=label_a)
+    if not c_b.empty:
+        plt.plot(c_b["t"], c_b["count"], label=label_b)
     plt.xlabel("Time (s, binned)")
     plt.ylabel("Region entries (segments started)")
     plt.title("Region entry counts over time")
@@ -326,7 +365,6 @@ def plot_comparison(seg_a: pd.DataFrame, seg_b: pd.DataFrame, label_a: str, labe
     plt.savefig(f"{out_prefix}_counts_over_time.png", dpi=200)
     plt.close()
 
-    # 2) Dwell time distribution (hist)
     plt.figure()
     if not seg_a.empty:
         plt.hist(seg_a["duration_s"], bins=30, alpha=0.6, label=label_a)
@@ -340,7 +378,6 @@ def plot_comparison(seg_a: pd.DataFrame, seg_b: pd.DataFrame, label_a: str, labe
     plt.savefig(f"{out_prefix}_dwell_hist.png", dpi=200)
     plt.close()
 
-    # 3) Confidence distribution (avg_conf_in_region)
     plt.figure()
     if not seg_a.empty:
         plt.hist(seg_a["avg_conf_in_region"], bins=30, alpha=0.6, label=label_a)
@@ -355,75 +392,131 @@ def plot_comparison(seg_a: pd.DataFrame, seg_b: pd.DataFrame, label_a: str, labe
     plt.close()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run ROI-based vehicle tracking/counting for tuned and/or default YOLO models."
+    )
+
+    parser.add_argument("--video-path", default=DEFAULT_VIDEO_PATH, help="Path to input video.")
+    parser.add_argument(
+        "--region-points",
+        type=parse_region_points,
+        default=DEFAULT_REGION_POINTS,
+        help='ROI polygon points as "x1,y1 x2,y2 x3,y3 ...".',
+    )
+
+    parser.add_argument("--tuned-model", default=DEFAULT_TUNED_MODEL, help="Path to tuned model weights.")
+    parser.add_argument("--default-model", default=DEFAULT_DEFAULT_MODEL, help="Path to baseline/default model weights.")
+    parser.add_argument("--tuned-label", default="tuned", help="Output label for tuned model.")
+    parser.add_argument("--default-label", default="default", help="Output label for default model.")
+
+    parser.add_argument("--tracker", default=DEFAULT_TRACKER_CFG, help="Tracker config, e.g. botsort.yaml or bytetrack.yaml.")
+    parser.add_argument("--conf-thres", type=float, default=DEFAULT_CONF_THRES, help="Detection confidence threshold.")
+    parser.add_argument("--iou-thres", type=float, default=DEFAULT_IOU_THRES, help="Detection IoU threshold.")
+    parser.add_argument("--fps", type=float, default=None, help="Override video FPS. By default it is read from the video file.")
+    parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR, help="Output directory.")
+
+    parser.add_argument(
+        "--tuned-class-filter",
+        type=parse_class_filter,
+        default=None,
+        help='Comma-separated class IDs for tuned model, or "none".',
+    )
+    parser.add_argument(
+        "--default-class-filter",
+        type=parse_class_filter,
+        default=DEFAULT_COCO_VEHICLE_CLASS_IDS,
+        help='Comma-separated class IDs for default model, or "none". Default is "2,3,5,7".',
+    )
+
+    parser.add_argument("--skip-tuned", action="store_true", help="Skip tuned model run.")
+    parser.add_argument("--skip-default", action="store_true", help="Skip default model run.")
+    parser.add_argument("--skip-plots", action="store_true", help="Skip comparison plots.")
+    parser.add_argument("--save-annotated-video", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--export-per-frame-csv", action=argparse.BooleanOptionalAction, default=True)
+
+    return parser.parse_args()
+
+
 def main():
-    ensure_dir(OUT_DIR)
+    args = parse_args()
+    ensure_dir(args.out_dir)
 
-    # Read fps from video
-    cap = cv2.VideoCapture(VIDEO_PATH)
-    assert cap.isOpened(), "Error reading video file"
-    fps = float(cap.get(cv2.CAP_PROP_FPS))
-    cap.release()
+    fps = args.fps if args.fps is not None else get_video_fps(args.video_path)
+    contour = region_contour(args.region_points)
 
-    contour = region_contour(REGION_POINTS)
+    ran = {}
 
-    # Decide whether to filter classes.
-    # If your tuned model is trained ONLY for vehicles, set vehicle_class_filter=None for tuned.
-    # For the COCO default model, filtering helps keep only vehicles.
-    tuned_filter = None
-    default_filter = COCO_VEHICLE_CLASS_IDS
+    if not args.skip_tuned:
+        tuned_video_out, tuned_per_frame, tuned_segments, tuned_summary = build_output_paths(
+            args.out_dir,
+            args.tuned_label,
+            args.save_annotated_video,
+            args.export_per_frame_csv,
+        )
 
-    tuned_label = "tuned"
-    default_label = "default"
+        seg_tuned, sum_tuned = run_video_for_model(
+            video_path=args.video_path,
+            model_path=args.tuned_model,
+            model_label=args.tuned_label,
+            contour=contour,
+            output_video_path=tuned_video_out,
+            per_frame_csv_path=tuned_per_frame,
+            segments_csv_path=tuned_segments,
+            summary_json_path=tuned_summary,
+            fps=fps,
+            tracker_cfg=args.tracker,
+            conf_thres=args.conf_thres,
+            iou_thres=args.iou_thres,
+            out_dir=args.out_dir,
+            save_annotated_video=args.save_annotated_video,
+            export_per_frame_csv=args.export_per_frame_csv,
+            vehicle_class_filter=args.tuned_class_filter,
+        )
+        ran["tuned"] = (seg_tuned, sum_tuned)
 
-    tuned_video_out = f"{OUT_DIR}/annotated_{tuned_label}.mp4"
-    default_video_out = f"{OUT_DIR}/annotated_{default_label}.mp4"
+    if not args.skip_default:
+        default_video_out, default_per_frame, default_segments, default_summary = build_output_paths(
+            args.out_dir,
+            args.default_label,
+            args.save_annotated_video,
+            args.export_per_frame_csv,
+        )
 
-    tuned_per_frame = f"{OUT_DIR}/{tuned_label}_per_frame.csv"
-    default_per_frame = f"{OUT_DIR}/{default_label}_per_frame.csv"
+        seg_default, sum_default = run_video_for_model(
+            video_path=args.video_path,
+            model_path=args.default_model,
+            model_label=args.default_label,
+            contour=contour,
+            output_video_path=default_video_out,
+            per_frame_csv_path=default_per_frame,
+            segments_csv_path=default_segments,
+            summary_json_path=default_summary,
+            fps=fps,
+            tracker_cfg=args.tracker,
+            conf_thres=args.conf_thres,
+            iou_thres=args.iou_thres,
+            out_dir=args.out_dir,
+            save_annotated_video=args.save_annotated_video,
+            export_per_frame_csv=args.export_per_frame_csv,
+            vehicle_class_filter=args.default_class_filter,
+        )
+        ran["default"] = (seg_default, sum_default)
 
-    tuned_segments = f"{OUT_DIR}/{tuned_label}_region_segments.csv"
-    default_segments = f"{OUT_DIR}/{default_label}_region_segments.csv"
+    if not args.skip_plots and "tuned" in ran and "default" in ran:
+        plot_comparison(
+            ran["tuned"][0],
+            ran["default"][0],
+            label_a=args.tuned_label,
+            label_b=args.default_label,
+            out_prefix=os.path.join(args.out_dir, "compare"),
+        )
 
-    tuned_summary = f"{OUT_DIR}/{tuned_label}_summary.json"
-    default_summary = f"{OUT_DIR}/{default_label}_summary.json"
+    for key, (_, summary) in ran.items():
+        print(f"\n=== Summary ({key}) ===")
+        print(json.dumps(summary, indent=2))
 
-    seg_tuned, sum_tuned = run_video_for_model(
-        model_path=TUNED_MODEL,
-        model_label=tuned_label,
-        contour=contour,
-        output_video_path=tuned_video_out,
-        per_frame_csv_path=tuned_per_frame,
-        segments_csv_path=tuned_segments,
-        summary_json_path=tuned_summary,
-        fps=fps,
-        vehicle_class_filter=tuned_filter,
-    )
-
-    seg_default, sum_default = run_video_for_model(
-        model_path=DEFAULT_MODEL,
-        model_label=default_label,
-        contour=contour,
-        output_video_path=default_video_out,
-        per_frame_csv_path=default_per_frame,
-        segments_csv_path=default_segments,
-        summary_json_path=default_summary,
-        fps=fps,
-        vehicle_class_filter=default_filter,
-    )
-
-    # Comparison plots
-    plot_comparison(
-        seg_tuned, seg_default,
-        label_a="Tuned", label_b="Default",
-        out_prefix=f"{OUT_DIR}/compare"
-    )
-
-    # Print a quick console summary
-    print("\n=== Summary (Tuned) ===")
-    print(json.dumps(sum_tuned, indent=2))
-    print("\n=== Summary (Default) ===")
-    print(json.dumps(sum_default, indent=2))
-    print(f"\nSaved CSV/plots/videos under: {OUT_DIR}")
+    print(f"\nSaved outputs under: {args.out_dir}")
 
 
 if __name__ == "__main__":
