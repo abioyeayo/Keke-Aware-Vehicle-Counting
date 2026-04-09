@@ -74,9 +74,9 @@ python vehicle_counter_analysis.py \
 Inside the container, run:
 ```bash
 python plot_vehicle_metrics.py \
-  --min-duration-s 0.20 \
-  --max-duration-s 8.0 \
-  --min-avg-conf 0.50 \
+  --min-duration-s 0.15 \
+  --max-duration-s 10.0 \
+  --min-avg-conf 0.40 \
   --tuned-segments ./results/keke_rev1/tuned_region_segments.csv \
   --default-segments ./results/keke_rev1/default_region_segments.csv \
   --baseline-segments ./baseline/yola_road_mp4_baseline_vehicle_count.csv \

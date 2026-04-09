@@ -1,5 +1,7 @@
-runs/
-results/
+runs/detect/predict*/
+runs/detect/*keke_rev*/
+results/keke_rev*/
+results/*/*.mp4
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
