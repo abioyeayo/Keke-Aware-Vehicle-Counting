@@ -1,6 +1,10 @@
 # Keke-Aware-Vehicle-Counting
 The dataset, training, inference, and evaluation codes for the "Keke-Aware Vehicle Counting for Traffic Measurement Using YOLO: Dataset and Field Evaluation" research paper.
 
+| Yolo11l-tuned model detection on Yola road | Yolo26l-tuned model detection on Mubi road |
+| :---: | :---: |
+| ![Yolo11l-tuned model detection on yola road test video showing track id, class, and confidence level. The yellow rectangle is the vehicle counting region.](baseline/yola_road_mp4_image_frames/frame_00548.8s.jpg) | ![Yolo26l-tuned model detection on yola mubi test video showing track id, class, and confidence level. The yellow rectangle is the vehicle counting region.](baseline/mubi_road_mp4_image_frames/frame_00258.6s.jpg) |
+
 
 ## Docker setup
 
@@ -57,16 +61,28 @@ python train.py --model yolo26l.pt --epochs 100 --imgsz 640 --name train_keke_re
 
 ### Run the traffic counting analysis
 
-Inside the container, run:
+Inside the container, run the following for the first test video:
 ```bash
 python vehicle_counter_analysis.py \
-  --video-path ./datasets/test/yola_road.mp4 \
+  --video-path ./datasets/test/20250627_121728h_yola_road.mp4 \
   --tracker botsort.yaml \
   --region-points "20,400 1080,400 1080,360 20,360" \
   --default-class-filter "2,3,5,7" \
   --default-model "yolo26l.pt" \
   --tuned-model "runs/detect/train_keke_rev1/weights/best.pt" \
   --out-dir "./results/keke_rev1"
+```
+
+and the following for the second test video:
+```bash
+python vehicle_counter_analysis.py \
+  --video-path ./datasets/test/20260131_170349h_mubi_road.mp4 \
+  --tracker botsort.yaml \
+  --region-points "320,600 1280,600 1280,560 320,560" \
+  --default-class-filter "2,3,5,7" \
+  --default-model "yolo26l.pt" \
+  --tuned-model "runs/detect/train_keke_rev1/weights/best.pt" \
+  --out-dir "./results/keke_rev1b"
 ```
 
 ### Plot analysis result

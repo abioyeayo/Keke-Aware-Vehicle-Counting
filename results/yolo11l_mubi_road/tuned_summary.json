@@ -1,0 +1,18 @@
+{
+  "model": "tuned",
+  "model_path": "runs/detect/train_yolo11l/weights/best.pt",
+  "video_path": "./datasets/test/20260131_170349h_mubi_road.mp4",
+  "tracker_cfg": "botsort.yaml",
+  "conf_thres": 0.25,
+  "iou_thres": 0.45,
+  "frames_processed": 12600,
+  "video_fps": 30.0,
+  "processing_seconds": 231.66810417175293,
+  "processing_fps": 54.38815172700112,
+  "segments": 550,
+  "unique_tracks_with_region_segments": 482,
+  "total_dwell_time_s": 25645.23333333333,
+  "avg_dwell_time_s": 46.62769696969696,
+  "avg_conf_in_region": 0.5594795008237857,
+  "vehicle_class_filter": null
+}

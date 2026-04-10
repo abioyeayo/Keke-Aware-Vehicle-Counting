@@ -643,4 +643,88 @@ keke  (tuned=187, default=0, baseline=181)
 truck  (tuned=3, default=131, baseline=23)
 
 
+appuser@337ee7fc0f07:/workspace$ python vehicle_counter_analysis.py \
+  --video-path ./datasets/test/20260131_170349h_mubi_road.mp4 \
+  --tracker botsort.yaml \
+  --region-points "320,600 1280,600 1280,560 320,560" \
+  --default-class-filter "2,3,5,7" \
+  --default-model "yolo26l.pt" \
+  --tuned-model "runs/detect/train_yolo26l/weights/best.pt" \
+  --out-dir "./results/yolo26l_mubi_road"
+
+=== Summary (tuned) ===
+{
+  "model": "tuned",
+  "model_path": "runs/detect/train_yolo26l/weights/best.pt",
+  "video_path": "./datasets/test/20260131_170349h_mubi_road.mp4",
+  "tracker_cfg": "botsort.yaml",
+  "conf_thres": 0.25,
+  "iou_thres": 0.45,
+  "frames_processed": 12600,
+  "video_fps": 30.0,
+  "processing_seconds": 218.80661702156067,
+  "processing_fps": 57.58509578692689,
+  "segments": 425,
+  "unique_tracks_with_region_segments": 385,
+  "total_dwell_time_s": 10746.966666666665,
+  "avg_dwell_time_s": 25.28698039215686,
+  "avg_conf_in_region": 0.676487567908826,
+  "vehicle_class_filter": null
+}
+
+=== Summary (default) ===
+{
+  "model": "default",
+  "model_path": "yolo26l.pt",
+  "video_path": "./datasets/test/20260131_170349h_mubi_road.mp4",
+  "tracker_cfg": "botsort.yaml",
+  "conf_thres": 0.25,
+  "iou_thres": 0.45,
+  "frames_processed": 12600,
+  "video_fps": 30.0,
+  "processing_seconds": 248.57262444496155,
+  "processing_fps": 50.68941130639214,
+  "segments": 723,
+  "unique_tracks_with_region_segments": 661,
+  "total_dwell_time_s": 55346.46666666666,
+  "avg_dwell_time_s": 76.55112955278929,
+  "avg_conf_in_region": 0.49131700216066404,
+  "vehicle_class_filter": [
+    2,
+    3,
+    5,
+    7
+  ]
+}
+
+Saved outputs under: ./results/yolo26l_mubi_road
+
+
+appuser@337ee7fc0f07:/workspace$ python baseline_count_video_splitter.py 
+Video: ./results/yolo26l_mubi_road/annotated_tuned.mp4
+FPS: 30.000
+Approx duration: 420.00s  (~2100 images at 5 fps)
+Saved 2100 images to: ./baseline/mubi_road_mp4_image_frames
+
+
+appuser@337ee7fc0f07:/workspace$ python plot_vehicle_metrics.py \
+  --min-duration-s 0.15 \
+  --max-duration-s 10.0 \
+  --min-avg-conf 0.40 \
+  --tuned-segments ./results/yolo26l_mubi_road/tuned_region_segments.csv \
+  --default-segments ./results/yolo26l_mubi_road/default_region_segments.csv \
+  --baseline-segments ./baseline/mubi_road_mp4_baseline_vehicle_count.csv \
+  --outdir ./results/yolo26l_mubi_road/plots
+-------------upward traffic flow-------------
+bus  (tuned=1, default=1, baseline=0)
+car  (tuned=55, default=133, baseline=0)
+keke  (tuned=72, default=0, baseline=0)
+truck  (tuned=7, default=9, baseline=0)
+-------------downward traffic flow-------------
+bus  (tuned=8, default=7, baseline=0)
+car  (tuned=51, default=116, baseline=1)
+keke  (tuned=96, default=0, baseline=3)
+truck  (tuned=32, default=78, baseline=0)
+
+
 appuser@337ee7fc0f07:/workspace$ 

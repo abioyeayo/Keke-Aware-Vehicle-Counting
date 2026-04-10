@@ -1,0 +1,23 @@
+{
+  "model": "default",
+  "model_path": "yolo26l.pt",
+  "video_path": "./datasets/test/20260131_170349h_mubi_road.mp4",
+  "tracker_cfg": "botsort.yaml",
+  "conf_thres": 0.25,
+  "iou_thres": 0.45,
+  "frames_processed": 12600,
+  "video_fps": 30.0,
+  "processing_seconds": 248.57262444496155,
+  "processing_fps": 50.68941130639214,
+  "segments": 723,
+  "unique_tracks_with_region_segments": 661,
+  "total_dwell_time_s": 55346.46666666666,
+  "avg_dwell_time_s": 76.55112955278929,
+  "avg_conf_in_region": 0.49131700216066404,
+  "vehicle_class_filter": [
+    2,
+    3,
+    5,
+    7
+  ]
+}
