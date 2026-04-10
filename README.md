@@ -3,6 +3,7 @@ The dataset, training, inference, and evaluation codes for the "Keke-Aware Vehic
 
 | Yolo11l-tuned model detection on Yola road | Yolo26l-tuned model detection on Mubi road |
 | :---: | :---: |
+| (Daytime, high visibility, moderate traffic condition) | (Evening, low visibility, dense traffic condition) |
 | ![Yolo11l-tuned model detection on yola road test video showing track id, class, and confidence level. The yellow rectangle is the vehicle counting region.](baseline/yola_road_mp4_image_frames/frame_00548.8s.jpg) | ![Yolo26l-tuned model detection on yola mubi test video showing track id, class, and confidence level. The yellow rectangle is the vehicle counting region.](baseline/mubi_road_mp4_image_frames/frame_00258.6s.jpg) |
 
 
@@ -73,7 +74,19 @@ python vehicle_counter_analysis.py \
   --out-dir "./results/keke_rev1"
 ```
 
-and the following for the second test video:
+Inside the container, for the yolo11l mubi road analysis, run:
+```bash
+python vehicle_counter_analysis.py \
+  --video-path ./datasets/test/20260131_170349h_mubi_road.mp4 \
+  --tracker botsort.yaml \
+  --region-points "320,600 1280,600 1280,560 320,560" \
+  --default-class-filter "2,3,5,7" \
+  --default-model "yolo11l.pt" \
+  --tuned-model "runs/detect/train_yolo11l/weights/best.pt" \
+  --out-dir "./results/yolo11l_mubi_road"
+```
+
+Inside the container, for the yolo26l mubi road analysis, run:
 ```bash
 python vehicle_counter_analysis.py \
   --video-path ./datasets/test/20260131_170349h_mubi_road.mp4 \
@@ -81,8 +94,8 @@ python vehicle_counter_analysis.py \
   --region-points "320,600 1280,600 1280,560 320,560" \
   --default-class-filter "2,3,5,7" \
   --default-model "yolo26l.pt" \
-  --tuned-model "runs/detect/train_keke_rev1/weights/best.pt" \
-  --out-dir "./results/keke_rev1b"
+  --tuned-model "runs/detect/train_yolo26l/weights/best.pt" \
+  --out-dir "./results/yolo26l_mubi_road"
 ```
 
 ### Plot analysis result
@@ -97,6 +110,30 @@ python plot_vehicle_metrics.py \
   --default-segments ./results/keke_rev1/default_region_segments.csv \
   --baseline-segments ./baseline/yola_road_mp4_baseline_vehicle_count.csv \
   --outdir ./results/keke_rev1/plots
+```
+
+Inside the container, for the yolo11l plots, run:
+```bash
+python plot_vehicle_metrics.py \
+  --min-duration-s 0.15 \
+  --max-duration-s 10.0 \
+  --min-avg-conf 0.40 \
+  --tuned-segments ./results/yolo11l_mubi_road/tuned_region_segments.csv \
+  --default-segments ./results/yolo11l_mubi_road/default_region_segments.csv \
+  --baseline-segments ./baseline/mubi_road_mp4_baseline_vehicle_count.csv \
+  --outdir ./results/yolo11l_mubi_road/plots
+```
+
+Inside the container, for the yolo26l plots, run:
+```bash
+python plot_vehicle_metrics.py \
+  --min-duration-s 0.15 \
+  --max-duration-s 10.0 \
+  --min-avg-conf 0.40 \
+  --tuned-segments ./results/yolo26l_mubi_road/tuned_region_segments.csv \
+  --default-segments ./results/yolo26l_mubi_road/default_region_segments.csv \
+  --baseline-segments ./baseline/mubi_road_mp4_baseline_vehicle_count.csv \
+  --outdir ./results/yolo26l_mubi_road/plots
 ```
 
 ### Stop the container
