@@ -1,0 +1,57 @@
+{
+  "experiment_key": "yola_road__yolo26l_default__bytetrack__full_frame",
+  "video_key": "yola_road",
+  "video_path": "./datasets/test/20250627_121728h_yola_road.mp4",
+  "baseline_path": "./baseline/yola_road_mp4_baseline_vehicle_count.csv",
+  "scene": "daytime, moderate traffic, high visibility",
+  "model_key": "yolo26l_default",
+  "model_display_name": "YOLO26l default",
+  "architecture": "YOLO26l",
+  "variant": "default",
+  "model_path": "yolo26l.pt",
+  "tracker": "bytetrack",
+  "tracker_cfg": "bytetrack.yaml",
+  "region_mode": "full_frame",
+  "region_points": [
+    [
+      20,
+      400
+    ],
+    [
+      1080,
+      400
+    ],
+    [
+      1080,
+      360
+    ],
+    [
+      20,
+      360
+    ]
+  ],
+  "detector_conf": 0.25,
+  "detector_iou": 0.45,
+  "class_filter": [
+    2,
+    3,
+    5,
+    7
+  ],
+  "frames_processed": 18022,
+  "video_total_frames": 18022,
+  "video_fps": 30.0,
+  "processing_seconds": 175.40776228904724,
+  "processing_fps": 102.74345767151563,
+  "segments": 1356,
+  "unique_tracks_with_region_segments": 1356,
+  "total_dwell_time_s": 402983.9,
+  "avg_dwell_time_s": 297.18576696165195,
+  "avg_conf_in_region": 0.43699417113470385,
+  "outputs": {
+    "segments_csv": "results/ablation_suite_full/yola_road/yola_road__yolo26l_default__bytetrack__full_frame/region_segments.csv",
+    "summary_json": "results/ablation_suite_full/yola_road/yola_road__yolo26l_default__bytetrack__full_frame/summary.json",
+    "per_frame_csv": "results/ablation_suite_full/yola_road/yola_road__yolo26l_default__bytetrack__full_frame/per_frame.csv",
+    "annotated_video": "results/ablation_suite_full/yola_road/yola_road__yolo26l_default__bytetrack__full_frame/annotated.mp4"
+  }
+}

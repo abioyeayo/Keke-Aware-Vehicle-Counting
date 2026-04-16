@@ -13,7 +13,7 @@ cache: false
 device: '0'
 workers: 8
 project: null
-name: train_keke_rev3
+name: train_yolo26l
 exist_ok: false
 pretrained: true
 optimizer: auto
@@ -106,4 +106,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: botsort.yaml
-save_dir: /workspace/runs/detect/train_keke_rev3
+save_dir: /workspace/runs/detect/train_yolo26l

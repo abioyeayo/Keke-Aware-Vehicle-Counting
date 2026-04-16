@@ -1,0 +1,37 @@
+{
+  "video_key": "yola_road",
+  "video_path": "./datasets/test/20250627_121728h_yola_road.mp4",
+  "baseline_path": "./baseline/yola_road_mp4_baseline_vehicle_count.csv",
+  "scene": "daytime, moderate traffic, high visibility",
+  "model_key": "yolo11l_tuned",
+  "model_path": "runs/detect/train_yolo11l/weights/best.pt",
+  "model_display_name": "YOLO11l tuned",
+  "architecture": "YOLO11l",
+  "variant": "tuned",
+  "tracker": "botsort.yaml",
+  "region_mode": "roi",
+  "region_points": [
+    [
+      20,
+      400
+    ],
+    [
+      1080,
+      400
+    ],
+    [
+      1080,
+      360
+    ],
+    [
+      20,
+      360
+    ]
+  ],
+  "class_filter": null,
+  "detector_conf": 0.25,
+  "detector_iou": 0.45,
+  "save_video": true,
+  "export_per_frame": true,
+  "max_frames": null
+}

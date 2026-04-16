@@ -53,12 +53,14 @@ Inside the container, run:
 python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no-gpu')"
 ```
 
-### Train the model
+## Train the model
 
 Inside the container, run:
 ```bash
 python train.py --model yolo26l.pt --epochs 100 --imgsz 640 --name train_keke_rev1
 ```
+
+## Preliminary traffic counting and analysis
 
 ### Run the traffic counting analysis
 
@@ -135,6 +137,33 @@ python plot_vehicle_metrics.py \
   --baseline-segments ./baseline/mubi_road_mp4_baseline_vehicle_count.csv \
   --outdir ./results/yolo26l_mubi_road/plots
 ```
+
+## Full study ablation counting and analysis
+
+### Exhaustive run with video and per frame csv log files:
+
+To run the full matrix with 32 counting pipeline configuration consisting of 4 detector (Yolo11L/Yolo26L default or tuned) x 2 trackers (BoT-SORT or ByteTrack) x 2 counting region (RoI or full frame), run the following:
+```bash
+python run_counting_ablation_suite.py \
+  --preset full_matrix \
+  --save-video --export-per-frame \
+  --output-root ./results/ablation_suite_full
+```
+
+### Result plots and csv summaries
+
+Run the following to plot the results and generate csv summaries for the full ablation study:
+```bash
+python plot_counting_suite.py \
+  --suite-dir ./results/ablation_suite_full \
+  --outdir ./results/ablation_suite_full/paper_plots \
+  --min-duration-s 0.15 \
+  --max-duration-s 10.0 \
+  --min-avg-conf 0.40 \
+  --match-tolerance-s 1.0
+```
+
+## Clean up process
 
 ### Stop the container
 

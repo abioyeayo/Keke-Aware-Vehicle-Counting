@@ -1,0 +1,10 @@
+[
+  "YOLO11l default | botsort | ROI",
+  "YOLO11l tuned | botsort | ROI",
+  "YOLO11l tuned | bytetrack | ROI",
+  "YOLO11l tuned | botsort | Full frame",
+  "YOLO26l default | botsort | ROI",
+  "YOLO26l tuned | botsort | ROI",
+  "YOLO26l tuned | bytetrack | ROI",
+  "YOLO26l tuned | botsort | Full frame"
+]

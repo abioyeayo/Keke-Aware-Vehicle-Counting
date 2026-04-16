@@ -1,0 +1,52 @@
+{
+  "experiment_key": "mubi_road__yolo26l_tuned__botsort__full_frame",
+  "video_key": "mubi_road",
+  "video_path": "./datasets/test/20260131_170349h_mubi_road.mp4",
+  "baseline_path": "./baseline/mubi_road_mp4_baseline_vehicle_count.csv",
+  "scene": "evening, higher congestion, cloudy / low visibility",
+  "model_key": "yolo26l_tuned",
+  "model_display_name": "YOLO26l tuned",
+  "architecture": "YOLO26l",
+  "variant": "tuned",
+  "model_path": "runs/detect/train_yolo26l/weights/best.pt",
+  "tracker": "botsort",
+  "tracker_cfg": "botsort.yaml",
+  "region_mode": "full_frame",
+  "region_points": [
+    [
+      320,
+      600
+    ],
+    [
+      1280,
+      600
+    ],
+    [
+      1280,
+      560
+    ],
+    [
+      320,
+      560
+    ]
+  ],
+  "detector_conf": 0.25,
+  "detector_iou": 0.45,
+  "class_filter": null,
+  "frames_processed": 12600,
+  "video_total_frames": 12600,
+  "video_fps": 30.0,
+  "processing_seconds": 221.76749658584595,
+  "processing_fps": 56.81626114728023,
+  "segments": 1980,
+  "unique_tracks_with_region_segments": 1980,
+  "total_dwell_time_s": 423647.2,
+  "avg_dwell_time_s": 213.96323232323232,
+  "avg_conf_in_region": 0.4157487360044008,
+  "outputs": {
+    "segments_csv": "results/ablation_suite_full/mubi_road/mubi_road__yolo26l_tuned__botsort__full_frame/region_segments.csv",
+    "summary_json": "results/ablation_suite_full/mubi_road/mubi_road__yolo26l_tuned__botsort__full_frame/summary.json",
+    "per_frame_csv": "results/ablation_suite_full/mubi_road/mubi_road__yolo26l_tuned__botsort__full_frame/per_frame.csv",
+    "annotated_video": "results/ablation_suite_full/mubi_road/mubi_road__yolo26l_tuned__botsort__full_frame/annotated.mp4"
+  }
+}
